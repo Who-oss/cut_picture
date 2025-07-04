@@ -29,6 +29,11 @@ const blockHeightInput = document.getElementById('blockHeight');
 const directionSelect = document.getElementById('direction');
 const showGridInput = document.getElementById('showGrid');
 
+// 新的 DOM
+const segBasisSelect = document.getElementById('segBasis');
+const colsCountInput = document.getElementById('colsCount');
+const rowsCountInput = document.getElementById('rowsCount');
+
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
@@ -134,15 +139,30 @@ function updateImageInfo() {
 function updateStats() {
     if (!currentImage) return;
     
-    const blockWidth = parseInt(blockWidthInput.value);
-    const blockHeight = parseInt(blockHeightInput.value);
+    const basis = segBasisSelect.value;
+    let blockWidth = parseInt(blockWidthInput.value);
+    let blockHeight = parseInt(blockHeightInput.value);
+    if (basis === 'count') {
+        const cols = Math.max(1, parseInt(colsCountInput.value));
+        const rows = Math.max(1, parseInt(rowsCountInput.value));
+        blockWidth = currentImage.width / cols;
+        blockHeight = currentImage.height / rows;
+    }
+    let blocksX, blocksY, totalBlocks;
     const direction = directionSelect.value;
+
+    if (basis === 'size') {
+        blocksX = Math.floor(currentImage.width / blockWidth);
+        blocksY = Math.floor(currentImage.height / blockHeight);
+    } else {
+        blocksX = parseInt(colsCountInput.value);
+        blocksY = parseInt(rowsCountInput.value);
+    }
     
-    let blocksX, blocksY, totalBlocks, statsContent;
+    let statsContent;
     
     if (direction === 'rows') {
         // 按行裁剪：每行一个块
-        blocksY = Math.floor(currentImage.height / blockHeight);
         totalBlocks = blocksY;
         statsContent = `
             <strong>按行裁剪预览</strong><br>
@@ -152,7 +172,6 @@ function updateStats() {
         `;
     } else if (direction === 'columns') {
         // 按列裁剪：每列一个块
-        blocksX = Math.floor(currentImage.width / blockWidth);
         totalBlocks = blocksX;
         statsContent = `
             <strong>按列裁剪预览</strong><br>
@@ -162,8 +181,6 @@ function updateStats() {
         `;
     } else {
         // 网格裁剪：行×列个块
-        blocksX = Math.floor(currentImage.width / blockWidth);
-        blocksY = Math.floor(currentImage.height / blockHeight);
         totalBlocks = blocksX * blocksY;
         statsContent = `
             <strong>网格裁剪预览</strong><br>
@@ -200,8 +217,15 @@ function updateGrid() {
     const ctx = gridCanvas.getContext('2d');
     ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
     
-    const blockWidth = parseInt(blockWidthInput.value);
-    const blockHeight = parseInt(blockHeightInput.value);
+    const basis = segBasisSelect.value;
+    let blockWidth = parseInt(blockWidthInput.value);
+    let blockHeight = parseInt(blockHeightInput.value);
+    if (basis === 'count') {
+        const cols = Math.max(1, parseInt(colsCountInput.value));
+        const rows = Math.max(1, parseInt(rowsCountInput.value));
+        blockWidth = currentImage.width / cols;
+        blockHeight = currentImage.height / rows;
+    }
     const direction = directionSelect.value;
     
     // 计算缩放比例
@@ -828,4 +852,18 @@ function showToast(message, type = 'info') {
         toast.classList.remove('show');
         setTimeout(() => document.body.removeChild(toast), 300);
     }, 3000);
+}
+
+function toggleSegInputs() {
+    const basis = segBasisSelect.value;
+    const sizeEls = document.querySelectorAll('.seg-size');
+    const countEls = document.querySelectorAll('.seg-count');
+    if (basis === 'size') {
+        sizeEls.forEach(el=>el.style.display='block');
+        countEls.forEach(el=>el.style.display='none');
+    } else {
+        sizeEls.forEach(el=>el.style.display='none');
+        countEls.forEach(el=>el.style.display='block');
+    }
+    updateGrid();
 }

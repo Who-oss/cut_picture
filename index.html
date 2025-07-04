@@ -48,13 +48,31 @@
                         <h3><i class="fas fa-cog"></i> 裁剪参数</h3>
                         
                         <div class="control-group">
+                            <label for="segBasis">分割方式:</label>
+                            <select id="segBasis" onchange="toggleSegInputs()">
+                                <option value="size">按尺寸 (px)</option>
+                                <option value="count">按数量 (行/列)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group seg-size">
                             <label for="blockWidth">块宽度 (px):</label>
-                            <input type="number" id="blockWidth" value="200" min="10" max="1000">
+                            <input type="number" id="blockWidth" value="200" min="10" max="5000">
                         </div>
 
-                        <div class="control-group">
+                        <div class="control-group seg-size">
                             <label for="blockHeight">块高度 (px):</label>
-                            <input type="number" id="blockHeight" value="200" min="10" max="1000">
+                            <input type="number" id="blockHeight" value="200" min="10" max="5000">
+                        </div>
+
+                        <div class="control-group seg-count" style="display:none">
+                            <label for="colsCount">列数 (水平块数):</label>
+                            <input type="number" id="colsCount" value="3" min="1" max="100">
+                        </div>
+
+                        <div class="control-group seg-count" style="display:none">
+                            <label for="rowsCount">行数 (垂直块数):</label>
+                            <input type="number" id="rowsCount" value="3" min="1" max="100">
                         </div>
 
                         <div class="control-group">
