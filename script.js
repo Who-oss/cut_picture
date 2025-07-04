@@ -215,8 +215,9 @@ function updateGrid() {
     if (direction === 'rows') {
         // 按行裁剪：只绘制水平线
         const scaledBlockHeight = blockHeight * scaleY;
-        for (let i = 1; i < Math.floor(currentImage.height / blockHeight); i++) {
-            const y = i * scaledBlockHeight + (gridOffsets.horizontal[i-1] || 0);
+        const numLines = Math.floor(currentImage.height / blockHeight) - 1;
+        for (let i = 0; i < numLines; i++) {
+            const y = (i + 1) * scaledBlockHeight + (gridOffsets.horizontal[i] || 0);
             if (y > 0 && y < displayHeight) {
                 ctx.beginPath();
                 ctx.moveTo(0, y);
@@ -227,8 +228,9 @@ function updateGrid() {
     } else if (direction === 'columns') {
         // 按列裁剪：只绘制垂直线
         const scaledBlockWidth = blockWidth * scaleX;
-        for (let i = 1; i < Math.floor(currentImage.width / blockWidth); i++) {
-            const x = i * scaledBlockWidth + (gridOffsets.vertical[i-1] || 0);
+        const numLines = Math.floor(currentImage.width / blockWidth) - 1;
+        for (let i = 0; i < numLines; i++) {
+            const x = (i + 1) * scaledBlockWidth + (gridOffsets.vertical[i] || 0);
             if (x > 0 && x < displayWidth) {
                 ctx.beginPath();
                 ctx.moveTo(x, 0);
@@ -242,8 +244,9 @@ function updateGrid() {
         const scaledBlockHeight = blockHeight * scaleY;
         
         // 绘制垂直线
-        for (let i = 1; i < Math.floor(currentImage.width / blockWidth); i++) {
-            const x = i * scaledBlockWidth + (gridOffsets.vertical[i-1] || 0);
+        const numVerticalLines = Math.floor(currentImage.width / blockWidth) - 1;
+        for (let i = 0; i < numVerticalLines; i++) {
+            const x = (i + 1) * scaledBlockWidth + (gridOffsets.vertical[i] || 0);
             if (x > 0 && x < displayWidth) {
                 ctx.beginPath();
                 ctx.moveTo(x, 0);
@@ -253,8 +256,9 @@ function updateGrid() {
         }
         
         // 绘制水平线
-        for (let i = 1; i < Math.floor(currentImage.height / blockHeight); i++) {
-            const y = i * scaledBlockHeight + (gridOffsets.horizontal[i-1] || 0);
+        const numHorizontalLines = Math.floor(currentImage.height / blockHeight) - 1;
+        for (let i = 0; i < numHorizontalLines; i++) {
+            const y = (i + 1) * scaledBlockHeight + (gridOffsets.horizontal[i] || 0);
             if (y > 0 && y < displayHeight) {
                 ctx.beginPath();
                 ctx.moveTo(0, y);
@@ -299,16 +303,16 @@ function cropImages() {
                 let endY = (y + 1) * blockHeight;
                 
                 // 应用网格偏移
-                if (y > 0 && gridOffsets.horizontal[y-1]) {
+                if (y > 0 && gridOffsets.horizontal[y-1] !== undefined) {
                     startY += gridOffsets.horizontal[y-1] / (gridCanvas.height / currentImage.height);
                 }
-                if (y < blocksY - 1 && gridOffsets.horizontal[y]) {
+                if (y < blocksY - 1 && gridOffsets.horizontal[y] !== undefined) {
                     endY += gridOffsets.horizontal[y] / (gridCanvas.height / currentImage.height);
                 }
                 
-                const actualHeight = Math.max(1, endY - startY);
+                const actualHeight = Math.max(1, Math.round(endY - startY));
                 canvas.height = actualHeight;
-                cropSingleImage(ctx, canvas, 0, startY, currentImage.width, actualHeight, index++);
+                cropSingleImage(ctx, canvas, 0, Math.round(startY), currentImage.width, actualHeight, index++);
             }
         } else if (direction === 'columns') {
             // 按列裁剪：每列一个块
@@ -321,16 +325,16 @@ function cropImages() {
                 let endX = (x + 1) * blockWidth;
                 
                 // 应用网格偏移
-                if (x > 0 && gridOffsets.vertical[x-1]) {
+                if (x > 0 && gridOffsets.vertical[x-1] !== undefined) {
                     startX += gridOffsets.vertical[x-1] / (gridCanvas.width / currentImage.width);
                 }
-                if (x < blocksX - 1 && gridOffsets.vertical[x]) {
+                if (x < blocksX - 1 && gridOffsets.vertical[x] !== undefined) {
                     endX += gridOffsets.vertical[x] / (gridCanvas.width / currentImage.width);
                 }
                 
-                const actualWidth = Math.max(1, endX - startX);
+                const actualWidth = Math.max(1, Math.round(endX - startX));
                 canvas.width = actualWidth;
-                cropSingleImage(ctx, canvas, startX, 0, actualWidth, currentImage.height, index++);
+                cropSingleImage(ctx, canvas, Math.round(startX), 0, actualWidth, currentImage.height, index++);
             }
         } else {
             // 网格裁剪：行×列个块
@@ -347,24 +351,24 @@ function cropImages() {
                     let endY = (y + 1) * blockHeight;
                     
                     // 应用网格偏移
-                    if (x > 0 && gridOffsets.vertical[x-1]) {
+                    if (x > 0 && gridOffsets.vertical[x-1] !== undefined) {
                         startX += gridOffsets.vertical[x-1] / (gridCanvas.width / currentImage.width);
                     }
-                    if (x < blocksX - 1 && gridOffsets.vertical[x]) {
+                    if (x < blocksX - 1 && gridOffsets.vertical[x] !== undefined) {
                         endX += gridOffsets.vertical[x] / (gridCanvas.width / currentImage.width);
                     }
-                    if (y > 0 && gridOffsets.horizontal[y-1]) {
+                    if (y > 0 && gridOffsets.horizontal[y-1] !== undefined) {
                         startY += gridOffsets.horizontal[y-1] / (gridCanvas.height / currentImage.height);
                     }
-                    if (y < blocksY - 1 && gridOffsets.horizontal[y]) {
+                    if (y < blocksY - 1 && gridOffsets.horizontal[y] !== undefined) {
                         endY += gridOffsets.horizontal[y] / (gridCanvas.height / currentImage.height);
                     }
                     
-                    const actualWidth = Math.max(1, endX - startX);
-                    const actualHeight = Math.max(1, endY - startY);
+                    const actualWidth = Math.max(1, Math.round(endX - startX));
+                    const actualHeight = Math.max(1, Math.round(endY - startY));
                     canvas.width = actualWidth;
                     canvas.height = actualHeight;
-                    cropSingleImage(ctx, canvas, startX, startY, actualWidth, actualHeight, index++);
+                    cropSingleImage(ctx, canvas, Math.round(startX), Math.round(startY), actualWidth, actualHeight, index++);
                 }
             }
         }
@@ -414,9 +418,14 @@ function displayResults() {
                 位置: (${item.x}, ${item.y})<br>
                 尺寸: ${item.width}×${item.height}
             </div>
-            <button class="btn btn-primary download-btn" onclick="downloadSingle(${index})">
-                <i class="fas fa-download"></i> 下载
-            </button>
+            <div class="item-actions">
+                <button class="btn btn-secondary download-btn" onclick="copySingleImageToClipboard(${index})">
+                    <i class="fas fa-copy"></i> 复制
+                </button>
+                <button class="btn btn-primary download-btn" onclick="downloadSingle(${index})">
+                    <i class="fas fa-download"></i> 下载
+                </button>
+            </div>
         `;
         resultsContainer.appendChild(resultItem);
     });
@@ -526,7 +535,7 @@ function handleGridMouseDown(e) {
     const y = e.clientY - rect.top;
     
     const direction = directionSelect.value;
-    const tolerance = 8; // 鼠标捕获网格线的容忍度
+    const tolerance = 10; // 增加鼠标捕获网格线的容忍度
     
     // 检查是否点击在网格线附近
     if (direction === 'rows' || direction === 'grid') {
@@ -534,12 +543,15 @@ function handleGridMouseDown(e) {
         const scaleY = gridCanvas.height / currentImage.height;
         const scaledBlockHeight = blockHeight * scaleY;
         
-        for (let i = 1; i < Math.floor(currentImage.height / blockHeight); i++) {
-            const lineY = i * scaledBlockHeight + (gridOffsets.horizontal[i-1] || 0);
+        const numLines = Math.floor(currentImage.height / blockHeight) - 1;
+        
+        for (let i = 0; i < numLines; i++) {
+            const lineY = (i + 1) * scaledBlockHeight + (gridOffsets.horizontal[i] || 0);
+            
             if (Math.abs(y - lineY) < tolerance) {
                 isDragging = true;
                 dragType = 'horizontal';
-                dragIndex = i - 1;
+                dragIndex = i;
                 gridCanvas.style.cursor = 'ns-resize';
                 e.preventDefault();
                 return;
@@ -552,12 +564,15 @@ function handleGridMouseDown(e) {
         const scaleX = gridCanvas.width / currentImage.width;
         const scaledBlockWidth = blockWidth * scaleX;
         
-        for (let i = 1; i < Math.floor(currentImage.width / blockWidth); i++) {
-            const lineX = i * scaledBlockWidth + (gridOffsets.vertical[i-1] || 0);
+        const numLines = Math.floor(currentImage.width / blockWidth) - 1;
+        
+        for (let i = 0; i < numLines; i++) {
+            const lineX = (i + 1) * scaledBlockWidth + (gridOffsets.vertical[i] || 0);
+            
             if (Math.abs(x - lineX) < tolerance) {
                 isDragging = true;
                 dragType = 'vertical';
-                dragIndex = i - 1;
+                dragIndex = i;
                 gridCanvas.style.cursor = 'ew-resize';
                 e.preventDefault();
                 return;
@@ -583,14 +598,11 @@ function handleGridMouseMove(e) {
             const baseY = (dragIndex + 1) * scaledBlockHeight;
             
             // 限制拖动范围
-            const maxOffset = scaledBlockHeight * 0.8;
-            const minOffset = -scaledBlockHeight * 0.8;
+            const maxOffset = scaledBlockHeight * 0.4;
+            const minOffset = -scaledBlockHeight * 0.4;
             let offset = y - baseY;
             offset = Math.max(minOffset, Math.min(maxOffset, offset));
             
-            if (!gridOffsets.horizontal[dragIndex]) {
-                gridOffsets.horizontal[dragIndex] = 0;
-            }
             gridOffsets.horizontal[dragIndex] = offset;
             
             updateGrid();
@@ -602,14 +614,11 @@ function handleGridMouseMove(e) {
             const baseX = (dragIndex + 1) * scaledBlockWidth;
             
             // 限制拖动范围
-            const maxOffset = scaledBlockWidth * 0.8;
-            const minOffset = -scaledBlockWidth * 0.8;
+            const maxOffset = scaledBlockWidth * 0.4;
+            const minOffset = -scaledBlockWidth * 0.4;
             let offset = x - baseX;
             offset = Math.max(minOffset, Math.min(maxOffset, offset));
             
-            if (!gridOffsets.vertical[dragIndex]) {
-                gridOffsets.vertical[dragIndex] = 0;
-            }
             gridOffsets.vertical[dragIndex] = offset;
             
             updateGrid();
@@ -618,16 +627,17 @@ function handleGridMouseMove(e) {
     } else {
         // 检查鼠标是否悬停在网格线上，改变光标样式
         const direction = directionSelect.value;
-        const tolerance = 8;
+        const tolerance = 10;
         let cursor = 'default';
         
         if (direction === 'rows' || direction === 'grid') {
             const blockHeight = parseInt(blockHeightInput.value);
             const scaleY = gridCanvas.height / currentImage.height;
             const scaledBlockHeight = blockHeight * scaleY;
+            const numLines = Math.floor(currentImage.height / blockHeight) - 1;
             
-            for (let i = 1; i < Math.floor(currentImage.height / blockHeight); i++) {
-                const lineY = i * scaledBlockHeight + (gridOffsets.horizontal[i-1] || 0);
+            for (let i = 0; i < numLines; i++) {
+                const lineY = (i + 1) * scaledBlockHeight + (gridOffsets.horizontal[i] || 0);
                 if (Math.abs(y - lineY) < tolerance) {
                     cursor = 'ns-resize';
                     break;
@@ -639,9 +649,10 @@ function handleGridMouseMove(e) {
             const blockWidth = parseInt(blockWidthInput.value);
             const scaleX = gridCanvas.width / currentImage.width;
             const scaledBlockWidth = blockWidth * scaleX;
+            const numLines = Math.floor(currentImage.width / blockWidth) - 1;
             
-            for (let i = 1; i < Math.floor(currentImage.width / blockWidth); i++) {
-                const lineX = i * scaledBlockWidth + (gridOffsets.vertical[i-1] || 0);
+            for (let i = 0; i < numLines; i++) {
+                const lineX = (i + 1) * scaledBlockWidth + (gridOffsets.vertical[i] || 0);
                 if (Math.abs(x - lineX) < tolerance) {
                     cursor = 'ew-resize';
                     break;
@@ -704,7 +715,7 @@ function selectAllImages() {
     }, 3000);
 }
 
-// 复制所有图片到剪贴板
+// 复制当前选择的图片到剪贴板
 async function copyAllToClipboard() {
     try {
         if (croppedImages.length === 0) {
@@ -712,27 +723,87 @@ async function copyAllToClipboard() {
             return;
         }
         
-        // 转换所有图片为blob
-        const blobs = await Promise.all(
-            croppedImages.map(async item => {
-                const response = await fetch(item.dataURL);
-                return await response.blob();
-            })
-        );
+        // 由于浏览器限制，我们一次只能复制一张图片
+        // 如果只有一张图片，直接复制
+        if (croppedImages.length === 1) {
+            await copySingleImageToClipboard(0);
+            return;
+        }
         
-        // 使用Clipboard API复制图片
-        const clipboardItems = blobs.map(blob => 
-            new ClipboardItem({
-                [blob.type]: blob
-            })
-        );
-        
-        await navigator.clipboard.write(clipboardItems);
-        showToast(`已复制 ${croppedImages.length} 张图片到剪贴板`, 'success');
+        // 多张图片时，创建一个合并的图片
+        await copyMergedImageToClipboard();
         
     } catch (error) {
         console.error('复制到剪贴板失败:', error);
+        showToast('复制失败，请尝试单独复制图片', 'error');
+    }
+}
+
+// 复制单张图片到剪贴板
+async function copySingleImageToClipboard(index) {
+    try {
+        const item = croppedImages[index];
+        const response = await fetch(item.dataURL);
+        const blob = await response.blob();
+        
+        const clipboardItem = new ClipboardItem({
+            [blob.type]: blob
+        });
+        
+        await navigator.clipboard.write([clipboardItem]);
+        showToast(`图片 ${index + 1} 已复制到剪贴板`, 'success');
+        
+    } catch (error) {
+        console.error('复制单张图片失败:', error);
         showToast('复制失败，您的浏览器可能不支持此功能', 'error');
+    }
+}
+
+// 复制合并后的图片到剪贴板
+async function copyMergedImageToClipboard() {
+    try {
+        // 创建一个画布来合并所有图片
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 计算合并图片的尺寸（横向排列）
+        const maxHeight = Math.max(...croppedImages.map(item => item.height));
+        const totalWidth = croppedImages.reduce((sum, item) => sum + item.width, 0);
+        
+        canvas.width = totalWidth;
+        canvas.height = maxHeight;
+        
+        // 填充白色背景
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 绘制所有图片
+        let currentX = 0;
+        for (let i = 0; i < croppedImages.length; i++) {
+            const img = new Image();
+            await new Promise((resolve) => {
+                img.onload = () => {
+                    ctx.drawImage(img, currentX, 0, croppedImages[i].width, croppedImages[i].height);
+                    currentX += croppedImages[i].width;
+                    resolve();
+                };
+                img.src = croppedImages[i].dataURL;
+            });
+        }
+        
+        // 转换为blob并复制
+        canvas.toBlob(async (blob) => {
+            const clipboardItem = new ClipboardItem({
+                [blob.type]: blob
+            });
+            
+            await navigator.clipboard.write([clipboardItem]);
+            showToast(`已复制合并图片到剪贴板 (${croppedImages.length} 张图片)`, 'success');
+        });
+        
+    } catch (error) {
+        console.error('复制合并图片失败:', error);
+        showToast('复制失败，请尝试单独下载图片', 'error');
     }
 }
 
