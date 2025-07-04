@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片裁剪工具</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-cut"></i> 图片裁剪工具</h1>
+            <p>将图片按固定大小裁剪成相同的方块</p>
+        </header>
+
+        <main>
+            <!-- 上传区域 -->
+            <section class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>拖拽图片到这里或点击上传</h3>
+                        <p>支持 JPG, PNG, GIF 格式</p>
+                        <input type="file" id="imageInput" accept="image/*" hidden>
+                        <button class="upload-btn" onclick="document.getElementById('imageInput').click()">
+                            选择图片
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 图片预览和参数设置 -->
+            <section class="main-content" id="mainContent" style="display: none;">
+                <div class="left-panel">
+                    <div class="image-preview">
+                        <h3>原图预览</h3>
+                        <div class="preview-container">
+                            <img id="previewImage" alt="预览图片">
+                            <canvas id="gridCanvas" class="grid-overlay"></canvas>
+                        </div>
+                        <div class="image-info" id="imageInfo"></div>
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <div class="controls">
+                        <h3><i class="fas fa-cog"></i> 裁剪参数</h3>
+                        
+                        <div class="control-group">
+                            <label for="blockWidth">块宽度 (px):</label>
+                            <input type="number" id="blockWidth" value="200" min="10" max="1000">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="blockHeight">块高度 (px):</label>
+                            <input type="number" id="blockHeight" value="200" min="10" max="1000">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="direction">裁剪方向:</label>
+                            <select id="direction">
+                                <option value="horizontal">水平 (从左到右)</option>
+                                <option value="vertical">垂直 (从上到下)</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="showGrid">显示网格:</label>
+                            <label class="switch">
+                                <input type="checkbox" id="showGrid" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="stats" id="stats"></div>
+
+                        <div class="action-buttons">
+                            <button class="btn btn-secondary" onclick="resetAll()">
+                                <i class="fas fa-redo"></i> 重置
+                            </button>
+                            <button class="btn btn-primary" onclick="cropImages()" id="cropBtn">
+                                <i class="fas fa-cut"></i> 开始裁剪
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 裁剪结果 -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <h3><i class="fas fa-images"></i> 裁剪结果</h3>
+                <div class="results-info" id="resultsInfo"></div>
+                <div class="results-container" id="resultsContainer"></div>
+                <div class="download-actions">
+                    <button class="btn btn-success" onclick="downloadAll()">
+                        <i class="fas fa-download"></i> 下载所有图片
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadZip()">
+                        <i class="fas fa-file-archive"></i> 打包下载
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2024 图片裁剪工具 - 简单易用的在线图片处理工具</p>
+        </footer>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
