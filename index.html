@@ -98,12 +98,28 @@
                         </div>
 
                         <div class="control-group">
+                            <label>拖拽模式:</label>
+                            <div class="drag-mode-selector">
+                                <label class="radio-option">
+                                    <input type="radio" name="dragMode" value="single" checked>
+                                    <span class="radio-label">单个移动</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="dragMode" value="group">
+                                    <span class="radio-label">整体移动</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="control-group">
                             <label>网格调整:</label>
                             <button class="btn btn-secondary btn-small" onclick="resetGridOffsets()">
                                 <i class="fas fa-undo"></i> 重置网格位置
                             </button>
                             <div class="grid-hint">
-                                💡 提示：可拖动网格线调整位置
+                                💡 提示：可拖动网格线调整位置<br>
+                                单个移动：只移动选中的网格线<br>
+                                整体移动：保持间距移动所有网格线
                             </div>
                         </div>
 

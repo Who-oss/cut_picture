@@ -11,6 +11,8 @@ const MIN_SLICE = 5;  // 最小块尺寸
 let isDragging = false;
 let dragType = null; // 'horizontal' 或 'vertical'
 let dragIndex = -1;  // 拖动的边界索引
+let dragStartPosition = 0; // 拖动开始时的鼠标位置
+let originalBoundaries = []; // 拖动开始时的边界副本
 
 // DOM 元素
 const uploadArea = document.getElementById('uploadArea');
@@ -400,6 +402,8 @@ function handleGridMouseDown(e) {
                 isDragging = true;
                 dragType = 'horizontal';
                 dragIndex = i;
+                dragStartPosition = y;
+                originalBoundaries = [...boundariesY]; // 保存原始边界
                 gridCanvas.style.cursor = 'ns-resize';
                 e.preventDefault();
                 return;
@@ -415,6 +419,8 @@ function handleGridMouseDown(e) {
                 isDragging = true;
                 dragType = 'vertical';
                 dragIndex = i;
+                dragStartPosition = x;
+                originalBoundaries = [...boundariesX]; // 保存原始边界
                 gridCanvas.style.cursor = 'ew-resize';
                 e.preventDefault();
                 return;
@@ -434,23 +440,84 @@ function handleGridMouseMove(e) {
         const scaleX = gridCanvas.width / currentImage.width;
         const scaleY = gridCanvas.height / currentImage.height;
         
+        // 获取当前拖拽模式
+        const dragMode = document.querySelector('input[name="dragMode"]:checked').value;
+        
         if (dragType === 'horizontal') {
-            // 拖动水平线
-            const newY = y / scaleY;
-            const minY = boundariesY[dragIndex - 1] + MIN_SLICE;
-            const maxY = boundariesY[dragIndex + 1] - MIN_SLICE;
-            
-            boundariesY[dragIndex] = Math.max(minY, Math.min(maxY, newY));
+            if (dragMode === 'single') {
+                // 单个移动模式：只移动当前线
+                const newY = y / scaleY;
+                const minY = boundariesY[dragIndex - 1] + MIN_SLICE;
+                const maxY = boundariesY[dragIndex + 1] - MIN_SLICE;
+                
+                boundariesY[dragIndex] = Math.max(minY, Math.min(maxY, newY));
+            } else {
+                // 整体移动模式：移动所有内部水平线
+                const deltaY = (y - dragStartPosition) / scaleY;
+                
+                // 计算移动范围限制
+                let maxDelta = Infinity;
+                let minDelta = -Infinity;
+                
+                for (let i = 1; i < originalBoundaries.length - 1; i++) {
+                    const originalY = originalBoundaries[i];
+                    const newY = originalY + deltaY;
+                    
+                    // 检查与前一条线的最小距离
+                    const minY = originalBoundaries[i - 1] + MIN_SLICE;
+                    const maxY = originalBoundaries[i + 1] - MIN_SLICE;
+                    
+                    maxDelta = Math.min(maxDelta, maxY - originalY);
+                    minDelta = Math.max(minDelta, minY - originalY);
+                }
+                
+                // 应用限制后的偏移
+                const clampedDelta = Math.max(minDelta, Math.min(maxDelta, deltaY));
+                
+                // 更新所有内部边界
+                for (let i = 1; i < boundariesY.length - 1; i++) {
+                    boundariesY[i] = originalBoundaries[i] + clampedDelta;
+                }
+            }
             updateGrid();
             updateStats();
             
         } else if (dragType === 'vertical') {
-            // 拖动垂直线
-            const newX = x / scaleX;
-            const minX = boundariesX[dragIndex - 1] + MIN_SLICE;
-            const maxX = boundariesX[dragIndex + 1] - MIN_SLICE;
-            
-            boundariesX[dragIndex] = Math.max(minX, Math.min(maxX, newX));
+            if (dragMode === 'single') {
+                // 单个移动模式：只移动当前线
+                const newX = x / scaleX;
+                const minX = boundariesX[dragIndex - 1] + MIN_SLICE;
+                const maxX = boundariesX[dragIndex + 1] - MIN_SLICE;
+                
+                boundariesX[dragIndex] = Math.max(minX, Math.min(maxX, newX));
+            } else {
+                // 整体移动模式：移动所有内部垂直线
+                const deltaX = (x - dragStartPosition) / scaleX;
+                
+                // 计算移动范围限制
+                let maxDelta = Infinity;
+                let minDelta = -Infinity;
+                
+                for (let i = 1; i < originalBoundaries.length - 1; i++) {
+                    const originalX = originalBoundaries[i];
+                    const newX = originalX + deltaX;
+                    
+                    // 检查与前一条线的最小距离
+                    const minX = originalBoundaries[i - 1] + MIN_SLICE;
+                    const maxX = originalBoundaries[i + 1] - MIN_SLICE;
+                    
+                    maxDelta = Math.min(maxDelta, maxX - originalX);
+                    minDelta = Math.max(minDelta, minX - originalX);
+                }
+                
+                // 应用限制后的偏移
+                const clampedDelta = Math.max(minDelta, Math.min(maxDelta, deltaX));
+                
+                // 更新所有内部边界
+                for (let i = 1; i < boundariesX.length - 1; i++) {
+                    boundariesX[i] = originalBoundaries[i] + clampedDelta;
+                }
+            }
             updateGrid();
             updateStats();
         }
