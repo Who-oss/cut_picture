@@ -122,25 +122,43 @@ function updateStats() {
     const blockHeight = parseInt(blockHeightInput.value);
     const direction = directionSelect.value;
     
-    let blocksX, blocksY, totalBlocks;
+    let blocksX, blocksY, totalBlocks, statsContent;
     
-    if (direction === 'horizontal') {
-        blocksX = Math.floor(currentImage.width / blockWidth);
+    if (direction === 'rows') {
+        // 按行裁剪：每行一个块
         blocksY = Math.floor(currentImage.height / blockHeight);
+        totalBlocks = blocksY;
+        statsContent = `
+            <strong>按行裁剪预览</strong><br>
+            行数: ${blocksY}<br>
+            总块数: ${totalBlocks}<br>
+            每块尺寸: ${currentImage.width} × ${blockHeight}px
+        `;
+    } else if (direction === 'columns') {
+        // 按列裁剪：每列一个块
+        blocksX = Math.floor(currentImage.width / blockWidth);
+        totalBlocks = blocksX;
+        statsContent = `
+            <strong>按列裁剪预览</strong><br>
+            列数: ${blocksX}<br>
+            总块数: ${totalBlocks}<br>
+            每块尺寸: ${blockWidth} × ${currentImage.height}px
+        `;
     } else {
+        // 网格裁剪：行×列个块
         blocksX = Math.floor(currentImage.width / blockWidth);
         blocksY = Math.floor(currentImage.height / blockHeight);
+        totalBlocks = blocksX * blocksY;
+        statsContent = `
+            <strong>网格裁剪预览</strong><br>
+            水平块数: ${blocksX}<br>
+            垂直块数: ${blocksY}<br>
+            总块数: ${totalBlocks}<br>
+            每块尺寸: ${blockWidth} × ${blockHeight}px
+        `;
     }
     
-    totalBlocks = blocksX * blocksY;
-    
-    stats.innerHTML = `
-        <strong>裁剪预览</strong><br>
-        水平块数: ${blocksX}<br>
-        垂直块数: ${blocksY}<br>
-        总块数: ${totalBlocks}<br>
-        每块尺寸: ${blockWidth} × ${blockHeight}px
-    `;
+    stats.innerHTML = statsContent;
 }
 
 // 更新网格显示
@@ -168,32 +186,54 @@ function updateGrid() {
     
     const blockWidth = parseInt(blockWidthInput.value);
     const blockHeight = parseInt(blockHeightInput.value);
+    const direction = directionSelect.value;
     
     // 计算缩放比例
     const scaleX = displayWidth / currentImage.width;
     const scaleY = displayHeight / currentImage.height;
     
-    const scaledBlockWidth = blockWidth * scaleX;
-    const scaledBlockHeight = blockHeight * scaleY;
-    
     ctx.strokeStyle = '#667eea';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     
-    // 绘制垂直线
-    for (let x = scaledBlockWidth; x < displayWidth; x += scaledBlockWidth) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, displayHeight);
-        ctx.stroke();
-    }
-    
-    // 绘制水平线
-    for (let y = scaledBlockHeight; y < displayHeight; y += scaledBlockHeight) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(displayWidth, y);
-        ctx.stroke();
+    if (direction === 'rows') {
+        // 按行裁剪：只绘制水平线
+        const scaledBlockHeight = blockHeight * scaleY;
+        for (let y = scaledBlockHeight; y < displayHeight; y += scaledBlockHeight) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(displayWidth, y);
+            ctx.stroke();
+        }
+    } else if (direction === 'columns') {
+        // 按列裁剪：只绘制垂直线
+        const scaledBlockWidth = blockWidth * scaleX;
+        for (let x = scaledBlockWidth; x < displayWidth; x += scaledBlockWidth) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, displayHeight);
+            ctx.stroke();
+        }
+    } else {
+        // 网格裁剪：绘制完整网格
+        const scaledBlockWidth = blockWidth * scaleX;
+        const scaledBlockHeight = blockHeight * scaleY;
+        
+        // 绘制垂直线
+        for (let x = scaledBlockWidth; x < displayWidth; x += scaledBlockWidth) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, displayHeight);
+            ctx.stroke();
+        }
+        
+        // 绘制水平线
+        for (let y = scaledBlockHeight; y < displayHeight; y += scaledBlockHeight) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(displayWidth, y);
+            ctx.stroke();
+        }
     }
     
     updateStats();
@@ -215,27 +255,38 @@ function cropImages() {
         
         croppedImages = [];
         
-        const blocksX = Math.floor(currentImage.width / blockWidth);
-        const blocksY = Math.floor(currentImage.height / blockHeight);
-        
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = blockWidth;
-        canvas.height = blockHeight;
         
         let index = 0;
         
-        if (direction === 'horizontal') {
-            // 从左到右，从上到下
+        if (direction === 'rows') {
+            // 按行裁剪：每行一个块
+            const blocksY = Math.floor(currentImage.height / blockHeight);
+            canvas.width = currentImage.width;
+            canvas.height = blockHeight;
+            
             for (let y = 0; y < blocksY; y++) {
-                for (let x = 0; x < blocksX; x++) {
-                    cropSingleImage(ctx, canvas, x * blockWidth, y * blockHeight, blockWidth, blockHeight, index++);
-                }
+                cropSingleImage(ctx, canvas, 0, y * blockHeight, currentImage.width, blockHeight, index++);
+            }
+        } else if (direction === 'columns') {
+            // 按列裁剪：每列一个块
+            const blocksX = Math.floor(currentImage.width / blockWidth);
+            canvas.width = blockWidth;
+            canvas.height = currentImage.height;
+            
+            for (let x = 0; x < blocksX; x++) {
+                cropSingleImage(ctx, canvas, x * blockWidth, 0, blockWidth, currentImage.height, index++);
             }
         } else {
-            // 从上到下，从左到右
-            for (let x = 0; x < blocksX; x++) {
-                for (let y = 0; y < blocksY; y++) {
+            // 网格裁剪：行×列个块
+            const blocksX = Math.floor(currentImage.width / blockWidth);
+            const blocksY = Math.floor(currentImage.height / blockHeight);
+            canvas.width = blockWidth;
+            canvas.height = blockHeight;
+            
+            for (let y = 0; y < blocksY; y++) {
+                for (let x = 0; x < blocksX; x++) {
                     cropSingleImage(ctx, canvas, x * blockWidth, y * blockHeight, blockWidth, blockHeight, index++);
                 }
             }
@@ -250,8 +301,8 @@ function cropImages() {
 
 // 裁剪单个图片
 function cropSingleImage(ctx, canvas, x, y, width, height, index) {
-    ctx.clearRect(0, 0, width, height);
-    ctx.drawImage(currentImage, x, y, width, height, 0, 0, width, height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(currentImage, x, y, width, height, 0, 0, canvas.width, canvas.height);
     
     const dataURL = canvas.toDataURL('image/png');
     croppedImages.push({
@@ -359,7 +410,7 @@ function resetAll() {
     // 重置参数
     blockWidthInput.value = 200;
     blockHeightInput.value = 200;
-    directionSelect.value = 'horizontal';
+    directionSelect.value = 'rows';
     showGridInput.checked = true;
     
     // 清除网格
