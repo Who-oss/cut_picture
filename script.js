@@ -2,14 +2,15 @@
 let currentImage = null;
 let croppedImages = [];
 
+// 边界数组驱动系统
+let boundariesX = []; // 垂直分割线的X坐标 [0, x1, x2, ..., imageWidth]
+let boundariesY = []; // 水平分割线的Y坐标 [0, y1, y2, ..., imageHeight]
+const MIN_SLICE = 5;  // 最小块尺寸
+
 // 网格拖动相关变量
 let isDragging = false;
 let dragType = null; // 'horizontal' 或 'vertical'
-let dragIndex = -1;
-let gridOffsets = {
-    horizontal: [], // 水平网格线的Y偏移
-    vertical: []    // 垂直网格线的X偏移
-};
+let dragIndex = -1;  // 拖动的边界索引
 
 // DOM 元素
 const uploadArea = document.getElementById('uploadArea');
@@ -22,17 +23,24 @@ const imageInfo = document.getElementById('imageInfo');
 const stats = document.getElementById('stats');
 const resultsInfo = document.getElementById('resultsInfo');
 const resultsContainer = document.getElementById('resultsContainer');
+const validationWarning = document.getElementById('validationWarning');
+const warningText = document.getElementById('warningText');
 
 // 参数元素
-const blockWidthInput = document.getElementById('blockWidth');
-const blockHeightInput = document.getElementById('blockHeight');
 const directionSelect = document.getElementById('direction');
 const showGridInput = document.getElementById('showGrid');
 
-// 新的 DOM
-const segBasisSelect = document.getElementById('segBasis');
-const colsCountInput = document.getElementById('colsCount');
-const rowsCountInput = document.getElementById('rowsCount');
+// 按行模式参数
+const rowCountInput = document.getElementById('rowCount');
+const rowHeightInput = document.getElementById('rowHeight');
+
+// 按列模式参数
+const colCountInput = document.getElementById('colCount');
+const colWidthInput = document.getElementById('colWidth');
+
+// 网格模式参数
+const blockWidthInput = document.getElementById('blockWidth');
+const blockHeightInput = document.getElementById('blockHeight');
 
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
@@ -51,10 +59,20 @@ function setupEventListeners() {
     uploadArea.addEventListener('dragleave', handleDragLeave);
     
     // 参数变化事件
-    blockWidthInput.addEventListener('input', updateGrid);
-    blockHeightInput.addEventListener('input', updateGrid);
-    directionSelect.addEventListener('change', updateGrid);
+    directionSelect.addEventListener('change', onDirectionChange);
     showGridInput.addEventListener('change', updateGrid);
+    
+    // 按行模式参数
+    rowCountInput.addEventListener('input', updateFromInputs);
+    rowHeightInput.addEventListener('input', updateFromInputs);
+    
+    // 按列模式参数
+    colCountInput.addEventListener('input', updateFromInputs);
+    colWidthInput.addEventListener('input', updateFromInputs);
+    
+    // 网格模式参数
+    blockWidthInput.addEventListener('input', updateFromInputs);
+    blockHeightInput.addEventListener('input', updateFromInputs);
     
     // 预览图片加载事件
     previewImage.addEventListener('load', updateImageInfo);
@@ -64,7 +82,27 @@ function setupEventListeners() {
     gridCanvas.addEventListener('mousemove', handleGridMouseMove);
     gridCanvas.addEventListener('mouseup', handleGridMouseUp);
     gridCanvas.addEventListener('mouseleave', handleGridMouseUp);
-    gridCanvas.style.cursor = 'default';
+}
+
+// 方向改变处理
+function onDirectionChange() {
+    const direction = directionSelect.value;
+    
+    // 隐藏所有参数组
+    document.querySelectorAll('.rows-params').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.cols-params').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.grid-params').forEach(el => el.style.display = 'none');
+    
+    // 显示对应参数组
+    if (direction === 'rows') {
+        document.querySelectorAll('.rows-params').forEach(el => el.style.display = 'block');
+    } else if (direction === 'columns') {
+        document.querySelectorAll('.cols-params').forEach(el => el.style.display = 'block');
+    } else {
+        document.querySelectorAll('.grid-params').forEach(el => el.style.display = 'block');
+    }
+    
+    updateFromInputs();
 }
 
 // 处理文件选择
@@ -112,12 +150,123 @@ function loadImage(file) {
             mainContent.style.display = 'grid';
             mainContent.classList.add('fade-in');
             resultsSection.style.display = 'none';
+            
+            // 初始化边界
+            initializeBoundaries();
             updateImageInfo();
             updateGrid();
         };
         currentImage.src = e.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+// 初始化边界数组
+function initializeBoundaries() {
+    if (!currentImage) return;
+    
+    const direction = directionSelect.value;
+    
+    boundariesX = [0, currentImage.width];
+    boundariesY = [0, currentImage.height];
+    
+    if (direction === 'rows') {
+        // 按行：根据行数和行高计算水平边界
+        const count = Math.max(1, parseInt(rowCountInput.value));
+        const height = Math.max(MIN_SLICE, parseInt(rowHeightInput.value));
+        
+        boundariesY = [0];
+        for (let i = 1; i < count; i++) {
+            boundariesY.push(Math.min(i * height, currentImage.height - MIN_SLICE));
+        }
+        boundariesY.push(currentImage.height);
+        
+    } else if (direction === 'columns') {
+        // 按列：根据列数和列宽计算垂直边界
+        const count = Math.max(1, parseInt(colCountInput.value));
+        const width = Math.max(MIN_SLICE, parseInt(colWidthInput.value));
+        
+        boundariesX = [0];
+        for (let i = 1; i < count; i++) {
+            boundariesX.push(Math.min(i * width, currentImage.width - MIN_SLICE));
+        }
+        boundariesX.push(currentImage.width);
+        
+    } else {
+        // 网格：根据块宽高计算边界
+        const blockWidth = Math.max(MIN_SLICE, parseInt(blockWidthInput.value));
+        const blockHeight = Math.max(MIN_SLICE, parseInt(blockHeightInput.value));
+        
+        // 计算垂直边界
+        boundariesX = [0];
+        for (let x = blockWidth; x < currentImage.width - MIN_SLICE; x += blockWidth) {
+            boundariesX.push(x);
+        }
+        boundariesX.push(currentImage.width);
+        
+        // 计算水平边界
+        boundariesY = [0];
+        for (let y = blockHeight; y < currentImage.height - MIN_SLICE; y += blockHeight) {
+            boundariesY.push(y);
+        }
+        boundariesY.push(currentImage.height);
+    }
+}
+
+// 从输入更新边界
+function updateFromInputs() {
+    if (!currentImage) return;
+    
+    initializeBoundaries();
+    validateInputs();
+    updateGrid();
+    updateStats();
+}
+
+// 验证输入
+function validateInputs() {
+    if (!currentImage) return;
+    
+    const direction = directionSelect.value;
+    let isValid = true;
+    let warning = '';
+    
+    if (direction === 'rows') {
+        const count = parseInt(rowCountInput.value);
+        const height = parseInt(rowHeightInput.value);
+        const totalHeight = count * height;
+        
+        if (totalHeight > currentImage.height + MIN_SLICE) {
+            isValid = false;
+            warning = `总高度 ${totalHeight}px 超出图片高度 ${currentImage.height}px`;
+        } else if (height < MIN_SLICE) {
+            isValid = false;
+            warning = `行高不能小于 ${MIN_SLICE}px`;
+        }
+        
+    } else if (direction === 'columns') {
+        const count = parseInt(colCountInput.value);
+        const width = parseInt(colWidthInput.value);
+        const totalWidth = count * width;
+        
+        if (totalWidth > currentImage.width + MIN_SLICE) {
+            isValid = false;
+            warning = `总宽度 ${totalWidth}px 超出图片宽度 ${currentImage.width}px`;
+        } else if (width < MIN_SLICE) {
+            isValid = false;
+            warning = `列宽不能小于 ${MIN_SLICE}px`;
+        }
+    }
+    
+    // 显示或隐藏警告
+    if (isValid) {
+        validationWarning.style.display = 'none';
+        document.getElementById('cropBtn').disabled = false;
+    } else {
+        validationWarning.style.display = 'block';
+        warningText.textContent = warning;
+        document.getElementById('cropBtn').disabled = true;
+    }
 }
 
 // 更新图片信息
@@ -132,62 +281,41 @@ function updateImageInfo() {
     `;
     imageInfo.innerHTML = info;
     
-    updateStats();
+    // 触发方向改变以显示正确的参数组
+    onDirectionChange();
 }
 
 // 更新统计信息
 function updateStats() {
-    if (!currentImage) return;
+    if (!currentImage || boundariesX.length < 2 || boundariesY.length < 2) return;
     
-    const basis = segBasisSelect.value;
-    let blockWidth = parseInt(blockWidthInput.value);
-    let blockHeight = parseInt(blockHeightInput.value);
-    if (basis === 'count') {
-        const cols = Math.max(1, parseInt(colsCountInput.value));
-        const rows = Math.max(1, parseInt(rowsCountInput.value));
-        blockWidth = currentImage.width / cols;
-        blockHeight = currentImage.height / rows;
-    }
-    let blocksX, blocksY, totalBlocks;
     const direction = directionSelect.value;
-
-    if (basis === 'size') {
-        blocksX = Math.floor(currentImage.width / blockWidth);
-        blocksY = Math.floor(currentImage.height / blockHeight);
-    } else {
-        blocksX = parseInt(colsCountInput.value);
-        blocksY = parseInt(rowsCountInput.value);
-    }
+    const blocksX = boundariesX.length - 1;
+    const blocksY = boundariesY.length - 1;
     
-    let statsContent;
+    let statsContent = '';
     
     if (direction === 'rows') {
-        // 按行裁剪：每行一个块
-        totalBlocks = blocksY;
         statsContent = `
             <strong>按行裁剪预览</strong><br>
             行数: ${blocksY}<br>
-            总块数: ${totalBlocks}<br>
-            每块尺寸: ${currentImage.width} × ${blockHeight}px
+            总块数: ${blocksY}<br>
+            平均块高: ${Math.round((boundariesY[boundariesY.length-1] - boundariesY[0]) / blocksY)}px
         `;
     } else if (direction === 'columns') {
-        // 按列裁剪：每列一个块
-        totalBlocks = blocksX;
         statsContent = `
             <strong>按列裁剪预览</strong><br>
             列数: ${blocksX}<br>
-            总块数: ${totalBlocks}<br>
-            每块尺寸: ${blockWidth} × ${currentImage.height}px
+            总块数: ${blocksX}<br>
+            平均块宽: ${Math.round((boundariesX[boundariesX.length-1] - boundariesX[0]) / blocksX)}px
         `;
     } else {
-        // 网格裁剪：行×列个块
-        totalBlocks = blocksX * blocksY;
+        const totalBlocks = blocksX * blocksY;
         statsContent = `
             <strong>网格裁剪预览</strong><br>
             水平块数: ${blocksX}<br>
             垂直块数: ${blocksY}<br>
-            总块数: ${totalBlocks}<br>
-            每块尺寸: ${blockWidth} × ${blockHeight}px
+            总块数: ${totalBlocks}
         `;
     }
     
@@ -198,7 +326,6 @@ function updateStats() {
 function updateGrid() {
     if (!currentImage || !previewImage.complete) return;
     
-    const rect = previewImage.getBoundingClientRect();
     const displayWidth = previewImage.offsetWidth;
     const displayHeight = previewImage.offsetHeight;
     
@@ -210,25 +337,13 @@ function updateGrid() {
     if (!showGridInput.checked) {
         const ctx = gridCanvas.getContext('2d');
         ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-        updateStats();
         return;
     }
     
     const ctx = gridCanvas.getContext('2d');
     ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
     
-    const basis = segBasisSelect.value;
-    let blockWidth = parseInt(blockWidthInput.value);
-    let blockHeight = parseInt(blockHeightInput.value);
-    if (basis === 'count') {
-        const cols = Math.max(1, parseInt(colsCountInput.value));
-        const rows = Math.max(1, parseInt(rowsCountInput.value));
-        blockWidth = currentImage.width / cols;
-        blockHeight = currentImage.height / rows;
-    }
     const direction = directionSelect.value;
-    
-    // 计算缩放比例
     const scaleX = displayWidth / currentImage.width;
     const scaleY = displayHeight / currentImage.height;
     
@@ -236,53 +351,11 @@ function updateGrid() {
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     
-    if (direction === 'rows') {
-        // 按行裁剪：只绘制水平线
-        const scaledBlockHeight = blockHeight * scaleY;
-        const numLines = Math.floor(currentImage.height / blockHeight) - 1;
-        for (let i = 0; i < numLines; i++) {
-            const y = (i + 1) * scaledBlockHeight + (gridOffsets.horizontal[i] || 0);
-            if (y > 0 && y < displayHeight) {
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(displayWidth, y);
-                ctx.stroke();
-            }
-        }
-    } else if (direction === 'columns') {
-        // 按列裁剪：只绘制垂直线
-        const scaledBlockWidth = blockWidth * scaleX;
-        const numLines = Math.floor(currentImage.width / blockWidth) - 1;
-        for (let i = 0; i < numLines; i++) {
-            const x = (i + 1) * scaledBlockWidth + (gridOffsets.vertical[i] || 0);
-            if (x > 0 && x < displayWidth) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, displayHeight);
-                ctx.stroke();
-            }
-        }
-    } else {
-        // 网格裁剪：绘制完整网格
-        const scaledBlockWidth = blockWidth * scaleX;
-        const scaledBlockHeight = blockHeight * scaleY;
-        
-        // 绘制垂直线
-        const numVerticalLines = Math.floor(currentImage.width / blockWidth) - 1;
-        for (let i = 0; i < numVerticalLines; i++) {
-            const x = (i + 1) * scaledBlockWidth + (gridOffsets.vertical[i] || 0);
-            if (x > 0 && x < displayWidth) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, displayHeight);
-                ctx.stroke();
-            }
-        }
-        
-        // 绘制水平线
-        const numHorizontalLines = Math.floor(currentImage.height / blockHeight) - 1;
-        for (let i = 0; i < numHorizontalLines; i++) {
-            const y = (i + 1) * scaledBlockHeight + (gridOffsets.horizontal[i] || 0);
+    // 绘制边界线
+    if (direction === 'rows' || direction === 'grid') {
+        // 绘制水平线（不包括首尾）
+        for (let i = 1; i < boundariesY.length - 1; i++) {
+            const y = boundariesY[i] * scaleY;
             if (y > 0 && y < displayHeight) {
                 ctx.beginPath();
                 ctx.moveTo(0, y);
@@ -292,7 +365,136 @@ function updateGrid() {
         }
     }
     
-    updateStats();
+    if (direction === 'columns' || direction === 'grid') {
+        // 绘制垂直线（不包括首尾）
+        for (let i = 1; i < boundariesX.length - 1; i++) {
+            const x = boundariesX[i] * scaleX;
+            if (x > 0 && x < displayWidth) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, displayHeight);
+                ctx.stroke();
+            }
+        }
+    }
+}
+
+// 网格拖动处理函数
+function handleGridMouseDown(e) {
+    if (!currentImage || !showGridInput.checked) return;
+    
+    const rect = gridCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const direction = directionSelect.value;
+    const tolerance = 10;
+    const scaleX = gridCanvas.width / currentImage.width;
+    const scaleY = gridCanvas.height / currentImage.height;
+    
+    // 检查水平线
+    if (direction === 'rows' || direction === 'grid') {
+        for (let i = 1; i < boundariesY.length - 1; i++) {
+            const lineY = boundariesY[i] * scaleY;
+            if (Math.abs(y - lineY) < tolerance) {
+                isDragging = true;
+                dragType = 'horizontal';
+                dragIndex = i;
+                gridCanvas.style.cursor = 'ns-resize';
+                e.preventDefault();
+                return;
+            }
+        }
+    }
+    
+    // 检查垂直线
+    if (direction === 'columns' || direction === 'grid') {
+        for (let i = 1; i < boundariesX.length - 1; i++) {
+            const lineX = boundariesX[i] * scaleX;
+            if (Math.abs(x - lineX) < tolerance) {
+                isDragging = true;
+                dragType = 'vertical';
+                dragIndex = i;
+                gridCanvas.style.cursor = 'ew-resize';
+                e.preventDefault();
+                return;
+            }
+        }
+    }
+}
+
+function handleGridMouseMove(e) {
+    if (!currentImage || !showGridInput.checked) return;
+    
+    const rect = gridCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (isDragging) {
+        const scaleX = gridCanvas.width / currentImage.width;
+        const scaleY = gridCanvas.height / currentImage.height;
+        
+        if (dragType === 'horizontal') {
+            // 拖动水平线
+            const newY = y / scaleY;
+            const minY = boundariesY[dragIndex - 1] + MIN_SLICE;
+            const maxY = boundariesY[dragIndex + 1] - MIN_SLICE;
+            
+            boundariesY[dragIndex] = Math.max(minY, Math.min(maxY, newY));
+            updateGrid();
+            updateStats();
+            
+        } else if (dragType === 'vertical') {
+            // 拖动垂直线
+            const newX = x / scaleX;
+            const minX = boundariesX[dragIndex - 1] + MIN_SLICE;
+            const maxX = boundariesX[dragIndex + 1] - MIN_SLICE;
+            
+            boundariesX[dragIndex] = Math.max(minX, Math.min(maxX, newX));
+            updateGrid();
+            updateStats();
+        }
+    } else {
+        // 检查鼠标悬停，改变光标
+        const direction = directionSelect.value;
+        const tolerance = 10;
+        const scaleX = gridCanvas.width / currentImage.width;
+        const scaleY = gridCanvas.height / currentImage.height;
+        let cursor = 'default';
+        
+        // 检查水平线
+        if (direction === 'rows' || direction === 'grid') {
+            for (let i = 1; i < boundariesY.length - 1; i++) {
+                const lineY = boundariesY[i] * scaleY;
+                if (Math.abs(y - lineY) < tolerance) {
+                    cursor = 'ns-resize';
+                    break;
+                }
+            }
+        }
+        
+        // 检查垂直线
+        if (cursor === 'default' && (direction === 'columns' || direction === 'grid')) {
+            for (let i = 1; i < boundariesX.length - 1; i++) {
+                const lineX = boundariesX[i] * scaleX;
+                if (Math.abs(x - lineX) < tolerance) {
+                    cursor = 'ew-resize';
+                    break;
+                }
+            }
+        }
+        
+        gridCanvas.style.cursor = cursor;
+    }
+}
+
+function handleGridMouseUp(e) {
+    if (isDragging) {
+        isDragging = false;
+        dragType = null;
+        dragIndex = -1;
+        gridCanvas.style.cursor = 'default';
+    }
 }
 
 // 裁剪图片
@@ -305,10 +507,6 @@ function cropImages() {
     cropBtn.disabled = true;
     
     setTimeout(() => {
-        const blockWidth = parseInt(blockWidthInput.value);
-        const blockHeight = parseInt(blockHeightInput.value);
-        const direction = directionSelect.value;
-        
         croppedImages = [];
         
         const canvas = document.createElement('canvas');
@@ -316,83 +514,31 @@ function cropImages() {
         
         let index = 0;
         
-        if (direction === 'rows') {
-            // 按行裁剪：每行一个块
-            const blocksY = Math.floor(currentImage.height / blockHeight);
-            canvas.width = currentImage.width;
-            canvas.height = blockHeight;
-            
-            for (let y = 0; y < blocksY; y++) {
-                let startY = y * blockHeight;
-                let endY = (y + 1) * blockHeight;
+        // 遍历所有区域进行裁剪
+        for (let yi = 0; yi < boundariesY.length - 1; yi++) {
+            for (let xi = 0; xi < boundariesX.length - 1; xi++) {
+                const x = Math.round(boundariesX[xi]);
+                const y = Math.round(boundariesY[yi]);
+                const w = Math.round(boundariesX[xi + 1] - boundariesX[xi]);
+                const h = Math.round(boundariesY[yi + 1] - boundariesY[yi]);
                 
-                // 应用网格偏移
-                if (y > 0 && gridOffsets.horizontal[y-1] !== undefined) {
-                    startY += gridOffsets.horizontal[y-1] / (gridCanvas.height / currentImage.height);
-                }
-                if (y < blocksY - 1 && gridOffsets.horizontal[y] !== undefined) {
-                    endY += gridOffsets.horizontal[y] / (gridCanvas.height / currentImage.height);
-                }
-                
-                const actualHeight = Math.max(1, Math.round(endY - startY));
-                canvas.height = actualHeight;
-                cropSingleImage(ctx, canvas, 0, Math.round(startY), currentImage.width, actualHeight, index++);
-            }
-        } else if (direction === 'columns') {
-            // 按列裁剪：每列一个块
-            const blocksX = Math.floor(currentImage.width / blockWidth);
-            canvas.width = blockWidth;
-            canvas.height = currentImage.height;
-            
-            for (let x = 0; x < blocksX; x++) {
-                let startX = x * blockWidth;
-                let endX = (x + 1) * blockWidth;
-                
-                // 应用网格偏移
-                if (x > 0 && gridOffsets.vertical[x-1] !== undefined) {
-                    startX += gridOffsets.vertical[x-1] / (gridCanvas.width / currentImage.width);
-                }
-                if (x < blocksX - 1 && gridOffsets.vertical[x] !== undefined) {
-                    endX += gridOffsets.vertical[x] / (gridCanvas.width / currentImage.width);
-                }
-                
-                const actualWidth = Math.max(1, Math.round(endX - startX));
-                canvas.width = actualWidth;
-                cropSingleImage(ctx, canvas, Math.round(startX), 0, actualWidth, currentImage.height, index++);
-            }
-        } else {
-            // 网格裁剪：行×列个块
-            const blocksX = Math.floor(currentImage.width / blockWidth);
-            const blocksY = Math.floor(currentImage.height / blockHeight);
-            canvas.width = blockWidth;
-            canvas.height = blockHeight;
-            
-            for (let y = 0; y < blocksY; y++) {
-                for (let x = 0; x < blocksX; x++) {
-                    let startX = x * blockWidth;
-                    let endX = (x + 1) * blockWidth;
-                    let startY = y * blockHeight;
-                    let endY = (y + 1) * blockHeight;
+                if (w > 0 && h > 0) {
+                    canvas.width = w;
+                    canvas.height = h;
                     
-                    // 应用网格偏移
-                    if (x > 0 && gridOffsets.vertical[x-1] !== undefined) {
-                        startX += gridOffsets.vertical[x-1] / (gridCanvas.width / currentImage.width);
-                    }
-                    if (x < blocksX - 1 && gridOffsets.vertical[x] !== undefined) {
-                        endX += gridOffsets.vertical[x] / (gridCanvas.width / currentImage.width);
-                    }
-                    if (y > 0 && gridOffsets.horizontal[y-1] !== undefined) {
-                        startY += gridOffsets.horizontal[y-1] / (gridCanvas.height / currentImage.height);
-                    }
-                    if (y < blocksY - 1 && gridOffsets.horizontal[y] !== undefined) {
-                        endY += gridOffsets.horizontal[y] / (gridCanvas.height / currentImage.height);
-                    }
+                    ctx.clearRect(0, 0, w, h);
+                    ctx.drawImage(currentImage, x, y, w, h, 0, 0, w, h);
                     
-                    const actualWidth = Math.max(1, Math.round(endX - startX));
-                    const actualHeight = Math.max(1, Math.round(endY - startY));
-                    canvas.width = actualWidth;
-                    canvas.height = actualHeight;
-                    cropSingleImage(ctx, canvas, Math.round(startX), Math.round(startY), actualWidth, actualHeight, index++);
+                    const dataURL = canvas.toDataURL('image/png');
+                    croppedImages.push({
+                        dataURL: dataURL,
+                        index: index,
+                        x: x,
+                        y: y,
+                        width: w,
+                        height: h
+                    });
+                    index++;
                 }
             }
         }
@@ -402,22 +548,6 @@ function cropImages() {
         cropBtn.innerHTML = originalText;
         cropBtn.disabled = false;
     }, 100);
-}
-
-// 裁剪单个图片
-function cropSingleImage(ctx, canvas, x, y, width, height, index) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(currentImage, x, y, width, height, 0, 0, canvas.width, canvas.height);
-    
-    const dataURL = canvas.toDataURL('image/png');
-    croppedImages.push({
-        dataURL: dataURL,
-        index: index,
-        x: x,
-        y: y,
-        width: width,
-        height: height
-    });
 }
 
 // 显示裁剪结果
@@ -475,7 +605,7 @@ function downloadAll() {
             link.download = `cropped_image_${index + 1}.png`;
             link.href = item.dataURL;
             link.click();
-        }, index * 200); // 延迟下载，避免浏览器阻止
+        }, index * 200);
     });
 }
 
@@ -488,7 +618,6 @@ function downloadZip() {
     
     const zip = new JSZip();
     
-    // 转换dataURL为blob的Promise数组
     const promises = croppedImages.map((item, index) => {
         return fetch(item.dataURL)
             .then(response => response.blob())
@@ -507,200 +636,9 @@ function downloadZip() {
     });
 }
 
-// 重置所有
-function resetAll() {
-    currentImage = null;
-    croppedImages = [];
-    
-    imageInput.value = '';
-    previewImage.src = '';
-    mainContent.style.display = 'none';
-    resultsSection.style.display = 'none';
-    
-    // 重置参数
-    blockWidthInput.value = 200;
-    blockHeightInput.value = 200;
-    directionSelect.value = 'rows';
-    showGridInput.checked = true;
-    
-    // 清除网格
-    const ctx = gridCanvas.getContext('2d');
-    ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-    
-    // 重置网格偏移
-    gridOffsets.horizontal = [];
-    gridOffsets.vertical = [];
-    
-    // 清空信息
-    imageInfo.innerHTML = '';
-    stats.innerHTML = '';
-    resultsInfo.innerHTML = '';
-    resultsContainer.innerHTML = '';
-}
-
-// 窗口大小改变时更新网格
-window.addEventListener('resize', () => {
-    if (currentImage && previewImage.complete) {
-        setTimeout(updateGrid, 100);
-    }
-});
-
-// 图片加载完成后更新网格
-previewImage.addEventListener('load', () => {
-    setTimeout(updateGrid, 100);
-});
-
-// 网格拖动处理函数
-function handleGridMouseDown(e) {
-    if (!currentImage || !showGridInput.checked) return;
-    
-    const rect = gridCanvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const direction = directionSelect.value;
-    const tolerance = 10; // 增加鼠标捕获网格线的容忍度
-    
-    // 检查是否点击在网格线附近
-    if (direction === 'rows' || direction === 'grid') {
-        const blockHeight = parseInt(blockHeightInput.value);
-        const scaleY = gridCanvas.height / currentImage.height;
-        const scaledBlockHeight = blockHeight * scaleY;
-        
-        const numLines = Math.floor(currentImage.height / blockHeight) - 1;
-        
-        for (let i = 0; i < numLines; i++) {
-            const lineY = (i + 1) * scaledBlockHeight + (gridOffsets.horizontal[i] || 0);
-            
-            if (Math.abs(y - lineY) < tolerance) {
-                isDragging = true;
-                dragType = 'horizontal';
-                dragIndex = i;
-                gridCanvas.style.cursor = 'ns-resize';
-                e.preventDefault();
-                return;
-            }
-        }
-    }
-    
-    if (direction === 'columns' || direction === 'grid') {
-        const blockWidth = parseInt(blockWidthInput.value);
-        const scaleX = gridCanvas.width / currentImage.width;
-        const scaledBlockWidth = blockWidth * scaleX;
-        
-        const numLines = Math.floor(currentImage.width / blockWidth) - 1;
-        
-        for (let i = 0; i < numLines; i++) {
-            const lineX = (i + 1) * scaledBlockWidth + (gridOffsets.vertical[i] || 0);
-            
-            if (Math.abs(x - lineX) < tolerance) {
-                isDragging = true;
-                dragType = 'vertical';
-                dragIndex = i;
-                gridCanvas.style.cursor = 'ew-resize';
-                e.preventDefault();
-                return;
-            }
-        }
-    }
-}
-
-function handleGridMouseMove(e) {
-    if (!currentImage || !showGridInput.checked) return;
-    
-    const rect = gridCanvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    if (isDragging) {
-        const direction = directionSelect.value;
-        
-        if (dragType === 'horizontal' && (direction === 'rows' || direction === 'grid')) {
-            const blockHeight = parseInt(blockHeightInput.value);
-            const scaleY = gridCanvas.height / currentImage.height;
-            const scaledBlockHeight = blockHeight * scaleY;
-            const baseY = (dragIndex + 1) * scaledBlockHeight;
-            
-            // 限制拖动范围
-            const maxOffset = scaledBlockHeight * 0.4;
-            const minOffset = -scaledBlockHeight * 0.4;
-            let offset = y - baseY;
-            offset = Math.max(minOffset, Math.min(maxOffset, offset));
-            
-            gridOffsets.horizontal[dragIndex] = offset;
-            
-            updateGrid();
-            updateStats();
-        } else if (dragType === 'vertical' && (direction === 'columns' || direction === 'grid')) {
-            const blockWidth = parseInt(blockWidthInput.value);
-            const scaleX = gridCanvas.width / currentImage.width;
-            const scaledBlockWidth = blockWidth * scaleX;
-            const baseX = (dragIndex + 1) * scaledBlockWidth;
-            
-            // 限制拖动范围
-            const maxOffset = scaledBlockWidth * 0.4;
-            const minOffset = -scaledBlockWidth * 0.4;
-            let offset = x - baseX;
-            offset = Math.max(minOffset, Math.min(maxOffset, offset));
-            
-            gridOffsets.vertical[dragIndex] = offset;
-            
-            updateGrid();
-            updateStats();
-        }
-    } else {
-        // 检查鼠标是否悬停在网格线上，改变光标样式
-        const direction = directionSelect.value;
-        const tolerance = 10;
-        let cursor = 'default';
-        
-        if (direction === 'rows' || direction === 'grid') {
-            const blockHeight = parseInt(blockHeightInput.value);
-            const scaleY = gridCanvas.height / currentImage.height;
-            const scaledBlockHeight = blockHeight * scaleY;
-            const numLines = Math.floor(currentImage.height / blockHeight) - 1;
-            
-            for (let i = 0; i < numLines; i++) {
-                const lineY = (i + 1) * scaledBlockHeight + (gridOffsets.horizontal[i] || 0);
-                if (Math.abs(y - lineY) < tolerance) {
-                    cursor = 'ns-resize';
-                    break;
-                }
-            }
-        }
-        
-        if (cursor === 'default' && (direction === 'columns' || direction === 'grid')) {
-            const blockWidth = parseInt(blockWidthInput.value);
-            const scaleX = gridCanvas.width / currentImage.width;
-            const scaledBlockWidth = blockWidth * scaleX;
-            const numLines = Math.floor(currentImage.width / blockWidth) - 1;
-            
-            for (let i = 0; i < numLines; i++) {
-                const lineX = (i + 1) * scaledBlockWidth + (gridOffsets.vertical[i] || 0);
-                if (Math.abs(x - lineX) < tolerance) {
-                    cursor = 'ew-resize';
-                    break;
-                }
-            }
-        }
-        
-        gridCanvas.style.cursor = cursor;
-    }
-}
-
-function handleGridMouseUp(e) {
-    if (isDragging) {
-        isDragging = false;
-        dragType = null;
-        dragIndex = -1;
-        gridCanvas.style.cursor = 'default';
-    }
-}
-
 // 重置网格偏移
 function resetGridOffsets() {
-    gridOffsets.horizontal = [];
-    gridOffsets.vertical = [];
+    initializeBoundaries();
     updateGrid();
     updateStats();
 }
@@ -710,27 +648,22 @@ function selectAllImages() {
     const resultItems = document.querySelectorAll('.result-item img');
     if (resultItems.length === 0) return;
     
-    // 创建选择范围
     const selection = window.getSelection();
     const range = document.createRange();
     
-    // 选择第一个图片到最后一个图片
     range.setStartBefore(resultItems[0]);
     range.setEndAfter(resultItems[resultItems.length - 1]);
     
     selection.removeAllRanges();
     selection.addRange(range);
     
-    // 高亮显示选中的图片
     resultItems.forEach(img => {
         img.parentElement.style.border = '3px solid #667eea';
         img.parentElement.style.boxShadow = '0 0 10px rgba(102, 126, 234, 0.5)';
     });
     
-    // 显示成功消息
     showToast('已选中所有图片，您可以使用 Ctrl+C 复制', 'success');
     
-    // 3秒后恢复正常样式
     setTimeout(() => {
         resultItems.forEach(img => {
             img.parentElement.style.border = '2px solid transparent';
@@ -747,14 +680,11 @@ async function copyAllToClipboard() {
             return;
         }
         
-        // 由于浏览器限制，我们一次只能复制一张图片
-        // 如果只有一张图片，直接复制
         if (croppedImages.length === 1) {
             await copySingleImageToClipboard(0);
             return;
         }
         
-        // 多张图片时，创建一个合并的图片
         await copyMergedImageToClipboard();
         
     } catch (error) {
@@ -786,22 +716,18 @@ async function copySingleImageToClipboard(index) {
 // 复制合并后的图片到剪贴板
 async function copyMergedImageToClipboard() {
     try {
-        // 创建一个画布来合并所有图片
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // 计算合并图片的尺寸（横向排列）
         const maxHeight = Math.max(...croppedImages.map(item => item.height));
         const totalWidth = croppedImages.reduce((sum, item) => sum + item.width, 0);
         
         canvas.width = totalWidth;
         canvas.height = maxHeight;
         
-        // 填充白色背景
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // 绘制所有图片
         let currentX = 0;
         for (let i = 0; i < croppedImages.length; i++) {
             const img = new Image();
@@ -815,7 +741,6 @@ async function copyMergedImageToClipboard() {
             });
         }
         
-        // 转换为blob并复制
         canvas.toBlob(async (blob) => {
             const clipboardItem = new ClipboardItem({
                 [blob.type]: blob
@@ -833,7 +758,6 @@ async function copyMergedImageToClipboard() {
 
 // 显示提示消息
 function showToast(message, type = 'info') {
-    // 创建提示元素
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
@@ -841,29 +765,63 @@ function showToast(message, type = 'info') {
         ${message}
     `;
     
-    // 添加到页面
     document.body.appendChild(toast);
     
-    // 显示动画
     setTimeout(() => toast.classList.add('show'), 100);
     
-    // 自动移除
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => document.body.removeChild(toast), 300);
     }, 3000);
 }
 
-function toggleSegInputs() {
-    const basis = segBasisSelect.value;
-    const sizeEls = document.querySelectorAll('.seg-size');
-    const countEls = document.querySelectorAll('.seg-count');
-    if (basis === 'size') {
-        sizeEls.forEach(el=>el.style.display='block');
-        countEls.forEach(el=>el.style.display='none');
-    } else {
-        sizeEls.forEach(el=>el.style.display='none');
-        countEls.forEach(el=>el.style.display='block');
-    }
-    updateGrid();
+// 重置所有
+function resetAll() {
+    currentImage = null;
+    croppedImages = [];
+    boundariesX = [];
+    boundariesY = [];
+    
+    imageInput.value = '';
+    previewImage.src = '';
+    mainContent.style.display = 'none';
+    resultsSection.style.display = 'none';
+    
+    // 重置参数
+    directionSelect.value = 'rows';
+    rowCountInput.value = 3;
+    rowHeightInput.value = 100;
+    colCountInput.value = 3;
+    colWidthInput.value = 100;
+    blockWidthInput.value = 200;
+    blockHeightInput.value = 200;
+    showGridInput.checked = true;
+    
+    // 隐藏警告
+    validationWarning.style.display = 'none';
+    
+    // 清除网格
+    const ctx = gridCanvas.getContext('2d');
+    ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+    
+    // 清空信息
+    imageInfo.innerHTML = '';
+    stats.innerHTML = '';
+    resultsInfo.innerHTML = '';
+    resultsContainer.innerHTML = '';
+    
+    // 触发方向改变
+    onDirectionChange();
 }
+
+// 窗口大小改变时更新网格
+window.addEventListener('resize', () => {
+    if (currentImage && previewImage.complete) {
+        setTimeout(updateGrid, 100);
+    }
+});
+
+// 图片加载完成后更新网格
+previewImage.addEventListener('load', () => {
+    setTimeout(updateGrid, 100);
+});

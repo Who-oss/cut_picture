@@ -48,40 +48,45 @@
                         <h3><i class="fas fa-cog"></i> 裁剪参数</h3>
                         
                         <div class="control-group">
-                            <label for="segBasis">分割方式:</label>
-                            <select id="segBasis" onchange="toggleSegInputs()">
-                                <option value="size">按尺寸 (px)</option>
-                                <option value="count">按数量 (行/列)</option>
-                            </select>
-                        </div>
-                        
-                        <div class="control-group seg-size">
-                            <label for="blockWidth">块宽度 (px):</label>
-                            <input type="number" id="blockWidth" value="200" min="10" max="5000">
-                        </div>
-
-                        <div class="control-group seg-size">
-                            <label for="blockHeight">块高度 (px):</label>
-                            <input type="number" id="blockHeight" value="200" min="10" max="5000">
-                        </div>
-
-                        <div class="control-group seg-count" style="display:none">
-                            <label for="colsCount">列数 (水平块数):</label>
-                            <input type="number" id="colsCount" value="3" min="1" max="100">
-                        </div>
-
-                        <div class="control-group seg-count" style="display:none">
-                            <label for="rowsCount">行数 (垂直块数):</label>
-                            <input type="number" id="rowsCount" value="3" min="1" max="100">
-                        </div>
-
-                        <div class="control-group">
                             <label for="direction">裁剪模式:</label>
                             <select id="direction">
                                 <option value="rows">按行裁剪 (从上到下)</option>
                                 <option value="columns">按列裁剪 (从左到右)</option>
                                 <option value="grid">网格裁剪 (行×列)</option>
                             </select>
+                        </div>
+
+                        <!-- 按行裁剪的参数 -->
+                        <div class="control-group rows-params" style="display:none">
+                            <label for="rowCount">行数 (块数量):</label>
+                            <input type="number" id="rowCount" value="3" min="1" max="100">
+                        </div>
+
+                        <div class="control-group rows-params" style="display:none">
+                            <label for="rowHeight">每行高度 (px):</label>
+                            <input type="number" id="rowHeight" value="100" min="5" max="5000">
+                        </div>
+
+                        <!-- 按列裁剪的参数 -->
+                        <div class="control-group cols-params" style="display:none">
+                            <label for="colCount">列数 (块数量):</label>
+                            <input type="number" id="colCount" value="3" min="1" max="100">
+                        </div>
+
+                        <div class="control-group cols-params" style="display:none">
+                            <label for="colWidth">每列宽度 (px):</label>
+                            <input type="number" id="colWidth" value="100" min="5" max="5000">
+                        </div>
+
+                        <!-- 网格裁剪的参数 -->
+                        <div class="control-group grid-params">
+                            <label for="blockWidth">块宽度 (px):</label>
+                            <input type="number" id="blockWidth" value="200" min="10" max="5000">
+                        </div>
+
+                        <div class="control-group grid-params">
+                            <label for="blockHeight">块高度 (px):</label>
+                            <input type="number" id="blockHeight" value="200" min="10" max="5000">
                         </div>
 
                         <div class="control-group">
@@ -100,6 +105,12 @@
                             <div class="grid-hint">
                                 💡 提示：可拖动网格线调整位置
                             </div>
+                        </div>
+
+                        <!-- 验证警告区域 -->
+                        <div class="validation-warning" id="validationWarning" style="display:none">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span id="warningText"></span>
                         </div>
 
                         <div class="stats" id="stats"></div>
