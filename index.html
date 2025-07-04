@@ -74,6 +74,16 @@
                             </label>
                         </div>
 
+                        <div class="control-group">
+                            <label>网格调整:</label>
+                            <button class="btn btn-secondary btn-small" onclick="resetGridOffsets()">
+                                <i class="fas fa-undo"></i> 重置网格位置
+                            </button>
+                            <div class="grid-hint">
+                                💡 提示：可拖动网格线调整位置
+                            </div>
+                        </div>
+
                         <div class="stats" id="stats"></div>
 
                         <div class="action-buttons">
@@ -94,6 +104,12 @@
                 <div class="results-info" id="resultsInfo"></div>
                 <div class="results-container" id="resultsContainer"></div>
                 <div class="download-actions">
+                    <button class="btn btn-primary" onclick="selectAllImages()">
+                        <i class="fas fa-check-square"></i> 全选图片
+                    </button>
+                    <button class="btn btn-secondary" onclick="copyAllToClipboard()">
+                        <i class="fas fa-copy"></i> 复制到剪贴板
+                    </button>
                     <button class="btn btn-success" onclick="downloadAll()">
                         <i class="fas fa-download"></i> 下载所有图片
                     </button>

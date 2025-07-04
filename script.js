@@ -2,6 +2,15 @@
 let currentImage = null;
 let croppedImages = [];
 
+// 网格拖动相关变量
+let isDragging = false;
+let dragType = null; // 'horizontal' 或 'vertical'
+let dragIndex = -1;
+let gridOffsets = {
+    horizontal: [], // 水平网格线的Y偏移
+    vertical: []    // 垂直网格线的X偏移
+};
+
 // DOM 元素
 const uploadArea = document.getElementById('uploadArea');
 const imageInput = document.getElementById('imageInput');
@@ -44,6 +53,13 @@ function setupEventListeners() {
     
     // 预览图片加载事件
     previewImage.addEventListener('load', updateImageInfo);
+    
+    // 网格拖动事件
+    gridCanvas.addEventListener('mousedown', handleGridMouseDown);
+    gridCanvas.addEventListener('mousemove', handleGridMouseMove);
+    gridCanvas.addEventListener('mouseup', handleGridMouseUp);
+    gridCanvas.addEventListener('mouseleave', handleGridMouseUp);
+    gridCanvas.style.cursor = 'default';
 }
 
 // 处理文件选择
@@ -199,20 +215,26 @@ function updateGrid() {
     if (direction === 'rows') {
         // 按行裁剪：只绘制水平线
         const scaledBlockHeight = blockHeight * scaleY;
-        for (let y = scaledBlockHeight; y < displayHeight; y += scaledBlockHeight) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(displayWidth, y);
-            ctx.stroke();
+        for (let i = 1; i < Math.floor(currentImage.height / blockHeight); i++) {
+            const y = i * scaledBlockHeight + (gridOffsets.horizontal[i-1] || 0);
+            if (y > 0 && y < displayHeight) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(displayWidth, y);
+                ctx.stroke();
+            }
         }
     } else if (direction === 'columns') {
         // 按列裁剪：只绘制垂直线
         const scaledBlockWidth = blockWidth * scaleX;
-        for (let x = scaledBlockWidth; x < displayWidth; x += scaledBlockWidth) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, displayHeight);
-            ctx.stroke();
+        for (let i = 1; i < Math.floor(currentImage.width / blockWidth); i++) {
+            const x = i * scaledBlockWidth + (gridOffsets.vertical[i-1] || 0);
+            if (x > 0 && x < displayWidth) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, displayHeight);
+                ctx.stroke();
+            }
         }
     } else {
         // 网格裁剪：绘制完整网格
@@ -220,19 +242,25 @@ function updateGrid() {
         const scaledBlockHeight = blockHeight * scaleY;
         
         // 绘制垂直线
-        for (let x = scaledBlockWidth; x < displayWidth; x += scaledBlockWidth) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, displayHeight);
-            ctx.stroke();
+        for (let i = 1; i < Math.floor(currentImage.width / blockWidth); i++) {
+            const x = i * scaledBlockWidth + (gridOffsets.vertical[i-1] || 0);
+            if (x > 0 && x < displayWidth) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, displayHeight);
+                ctx.stroke();
+            }
         }
         
         // 绘制水平线
-        for (let y = scaledBlockHeight; y < displayHeight; y += scaledBlockHeight) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(displayWidth, y);
-            ctx.stroke();
+        for (let i = 1; i < Math.floor(currentImage.height / blockHeight); i++) {
+            const y = i * scaledBlockHeight + (gridOffsets.horizontal[i-1] || 0);
+            if (y > 0 && y < displayHeight) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(displayWidth, y);
+                ctx.stroke();
+            }
         }
     }
     
@@ -267,7 +295,20 @@ function cropImages() {
             canvas.height = blockHeight;
             
             for (let y = 0; y < blocksY; y++) {
-                cropSingleImage(ctx, canvas, 0, y * blockHeight, currentImage.width, blockHeight, index++);
+                let startY = y * blockHeight;
+                let endY = (y + 1) * blockHeight;
+                
+                // 应用网格偏移
+                if (y > 0 && gridOffsets.horizontal[y-1]) {
+                    startY += gridOffsets.horizontal[y-1] / (gridCanvas.height / currentImage.height);
+                }
+                if (y < blocksY - 1 && gridOffsets.horizontal[y]) {
+                    endY += gridOffsets.horizontal[y] / (gridCanvas.height / currentImage.height);
+                }
+                
+                const actualHeight = Math.max(1, endY - startY);
+                canvas.height = actualHeight;
+                cropSingleImage(ctx, canvas, 0, startY, currentImage.width, actualHeight, index++);
             }
         } else if (direction === 'columns') {
             // 按列裁剪：每列一个块
@@ -276,7 +317,20 @@ function cropImages() {
             canvas.height = currentImage.height;
             
             for (let x = 0; x < blocksX; x++) {
-                cropSingleImage(ctx, canvas, x * blockWidth, 0, blockWidth, currentImage.height, index++);
+                let startX = x * blockWidth;
+                let endX = (x + 1) * blockWidth;
+                
+                // 应用网格偏移
+                if (x > 0 && gridOffsets.vertical[x-1]) {
+                    startX += gridOffsets.vertical[x-1] / (gridCanvas.width / currentImage.width);
+                }
+                if (x < blocksX - 1 && gridOffsets.vertical[x]) {
+                    endX += gridOffsets.vertical[x] / (gridCanvas.width / currentImage.width);
+                }
+                
+                const actualWidth = Math.max(1, endX - startX);
+                canvas.width = actualWidth;
+                cropSingleImage(ctx, canvas, startX, 0, actualWidth, currentImage.height, index++);
             }
         } else {
             // 网格裁剪：行×列个块
@@ -287,7 +341,30 @@ function cropImages() {
             
             for (let y = 0; y < blocksY; y++) {
                 for (let x = 0; x < blocksX; x++) {
-                    cropSingleImage(ctx, canvas, x * blockWidth, y * blockHeight, blockWidth, blockHeight, index++);
+                    let startX = x * blockWidth;
+                    let endX = (x + 1) * blockWidth;
+                    let startY = y * blockHeight;
+                    let endY = (y + 1) * blockHeight;
+                    
+                    // 应用网格偏移
+                    if (x > 0 && gridOffsets.vertical[x-1]) {
+                        startX += gridOffsets.vertical[x-1] / (gridCanvas.width / currentImage.width);
+                    }
+                    if (x < blocksX - 1 && gridOffsets.vertical[x]) {
+                        endX += gridOffsets.vertical[x] / (gridCanvas.width / currentImage.width);
+                    }
+                    if (y > 0 && gridOffsets.horizontal[y-1]) {
+                        startY += gridOffsets.horizontal[y-1] / (gridCanvas.height / currentImage.height);
+                    }
+                    if (y < blocksY - 1 && gridOffsets.horizontal[y]) {
+                        endY += gridOffsets.horizontal[y] / (gridCanvas.height / currentImage.height);
+                    }
+                    
+                    const actualWidth = Math.max(1, endX - startX);
+                    const actualHeight = Math.max(1, endY - startY);
+                    canvas.width = actualWidth;
+                    canvas.height = actualHeight;
+                    cropSingleImage(ctx, canvas, startX, startY, actualWidth, actualHeight, index++);
                 }
             }
         }
@@ -417,6 +494,10 @@ function resetAll() {
     const ctx = gridCanvas.getContext('2d');
     ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
     
+    // 重置网格偏移
+    gridOffsets.horizontal = [];
+    gridOffsets.vertical = [];
+    
     // 清空信息
     imageInfo.innerHTML = '';
     stats.innerHTML = '';
@@ -435,3 +516,245 @@ window.addEventListener('resize', () => {
 previewImage.addEventListener('load', () => {
     setTimeout(updateGrid, 100);
 });
+
+// 网格拖动处理函数
+function handleGridMouseDown(e) {
+    if (!currentImage || !showGridInput.checked) return;
+    
+    const rect = gridCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const direction = directionSelect.value;
+    const tolerance = 8; // 鼠标捕获网格线的容忍度
+    
+    // 检查是否点击在网格线附近
+    if (direction === 'rows' || direction === 'grid') {
+        const blockHeight = parseInt(blockHeightInput.value);
+        const scaleY = gridCanvas.height / currentImage.height;
+        const scaledBlockHeight = blockHeight * scaleY;
+        
+        for (let i = 1; i < Math.floor(currentImage.height / blockHeight); i++) {
+            const lineY = i * scaledBlockHeight + (gridOffsets.horizontal[i-1] || 0);
+            if (Math.abs(y - lineY) < tolerance) {
+                isDragging = true;
+                dragType = 'horizontal';
+                dragIndex = i - 1;
+                gridCanvas.style.cursor = 'ns-resize';
+                e.preventDefault();
+                return;
+            }
+        }
+    }
+    
+    if (direction === 'columns' || direction === 'grid') {
+        const blockWidth = parseInt(blockWidthInput.value);
+        const scaleX = gridCanvas.width / currentImage.width;
+        const scaledBlockWidth = blockWidth * scaleX;
+        
+        for (let i = 1; i < Math.floor(currentImage.width / blockWidth); i++) {
+            const lineX = i * scaledBlockWidth + (gridOffsets.vertical[i-1] || 0);
+            if (Math.abs(x - lineX) < tolerance) {
+                isDragging = true;
+                dragType = 'vertical';
+                dragIndex = i - 1;
+                gridCanvas.style.cursor = 'ew-resize';
+                e.preventDefault();
+                return;
+            }
+        }
+    }
+}
+
+function handleGridMouseMove(e) {
+    if (!currentImage || !showGridInput.checked) return;
+    
+    const rect = gridCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    if (isDragging) {
+        const direction = directionSelect.value;
+        
+        if (dragType === 'horizontal' && (direction === 'rows' || direction === 'grid')) {
+            const blockHeight = parseInt(blockHeightInput.value);
+            const scaleY = gridCanvas.height / currentImage.height;
+            const scaledBlockHeight = blockHeight * scaleY;
+            const baseY = (dragIndex + 1) * scaledBlockHeight;
+            
+            // 限制拖动范围
+            const maxOffset = scaledBlockHeight * 0.8;
+            const minOffset = -scaledBlockHeight * 0.8;
+            let offset = y - baseY;
+            offset = Math.max(minOffset, Math.min(maxOffset, offset));
+            
+            if (!gridOffsets.horizontal[dragIndex]) {
+                gridOffsets.horizontal[dragIndex] = 0;
+            }
+            gridOffsets.horizontal[dragIndex] = offset;
+            
+            updateGrid();
+            updateStats();
+        } else if (dragType === 'vertical' && (direction === 'columns' || direction === 'grid')) {
+            const blockWidth = parseInt(blockWidthInput.value);
+            const scaleX = gridCanvas.width / currentImage.width;
+            const scaledBlockWidth = blockWidth * scaleX;
+            const baseX = (dragIndex + 1) * scaledBlockWidth;
+            
+            // 限制拖动范围
+            const maxOffset = scaledBlockWidth * 0.8;
+            const minOffset = -scaledBlockWidth * 0.8;
+            let offset = x - baseX;
+            offset = Math.max(minOffset, Math.min(maxOffset, offset));
+            
+            if (!gridOffsets.vertical[dragIndex]) {
+                gridOffsets.vertical[dragIndex] = 0;
+            }
+            gridOffsets.vertical[dragIndex] = offset;
+            
+            updateGrid();
+            updateStats();
+        }
+    } else {
+        // 检查鼠标是否悬停在网格线上，改变光标样式
+        const direction = directionSelect.value;
+        const tolerance = 8;
+        let cursor = 'default';
+        
+        if (direction === 'rows' || direction === 'grid') {
+            const blockHeight = parseInt(blockHeightInput.value);
+            const scaleY = gridCanvas.height / currentImage.height;
+            const scaledBlockHeight = blockHeight * scaleY;
+            
+            for (let i = 1; i < Math.floor(currentImage.height / blockHeight); i++) {
+                const lineY = i * scaledBlockHeight + (gridOffsets.horizontal[i-1] || 0);
+                if (Math.abs(y - lineY) < tolerance) {
+                    cursor = 'ns-resize';
+                    break;
+                }
+            }
+        }
+        
+        if (cursor === 'default' && (direction === 'columns' || direction === 'grid')) {
+            const blockWidth = parseInt(blockWidthInput.value);
+            const scaleX = gridCanvas.width / currentImage.width;
+            const scaledBlockWidth = blockWidth * scaleX;
+            
+            for (let i = 1; i < Math.floor(currentImage.width / blockWidth); i++) {
+                const lineX = i * scaledBlockWidth + (gridOffsets.vertical[i-1] || 0);
+                if (Math.abs(x - lineX) < tolerance) {
+                    cursor = 'ew-resize';
+                    break;
+                }
+            }
+        }
+        
+        gridCanvas.style.cursor = cursor;
+    }
+}
+
+function handleGridMouseUp(e) {
+    if (isDragging) {
+        isDragging = false;
+        dragType = null;
+        dragIndex = -1;
+        gridCanvas.style.cursor = 'default';
+    }
+}
+
+// 重置网格偏移
+function resetGridOffsets() {
+    gridOffsets.horizontal = [];
+    gridOffsets.vertical = [];
+    updateGrid();
+    updateStats();
+}
+
+// 全选图片
+function selectAllImages() {
+    const resultItems = document.querySelectorAll('.result-item img');
+    if (resultItems.length === 0) return;
+    
+    // 创建选择范围
+    const selection = window.getSelection();
+    const range = document.createRange();
+    
+    // 选择第一个图片到最后一个图片
+    range.setStartBefore(resultItems[0]);
+    range.setEndAfter(resultItems[resultItems.length - 1]);
+    
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    // 高亮显示选中的图片
+    resultItems.forEach(img => {
+        img.parentElement.style.border = '3px solid #667eea';
+        img.parentElement.style.boxShadow = '0 0 10px rgba(102, 126, 234, 0.5)';
+    });
+    
+    // 显示成功消息
+    showToast('已选中所有图片，您可以使用 Ctrl+C 复制', 'success');
+    
+    // 3秒后恢复正常样式
+    setTimeout(() => {
+        resultItems.forEach(img => {
+            img.parentElement.style.border = '2px solid transparent';
+            img.parentElement.style.boxShadow = '';
+        });
+    }, 3000);
+}
+
+// 复制所有图片到剪贴板
+async function copyAllToClipboard() {
+    try {
+        if (croppedImages.length === 0) {
+            showToast('没有可复制的图片', 'error');
+            return;
+        }
+        
+        // 转换所有图片为blob
+        const blobs = await Promise.all(
+            croppedImages.map(async item => {
+                const response = await fetch(item.dataURL);
+                return await response.blob();
+            })
+        );
+        
+        // 使用Clipboard API复制图片
+        const clipboardItems = blobs.map(blob => 
+            new ClipboardItem({
+                [blob.type]: blob
+            })
+        );
+        
+        await navigator.clipboard.write(clipboardItems);
+        showToast(`已复制 ${croppedImages.length} 张图片到剪贴板`, 'success');
+        
+    } catch (error) {
+        console.error('复制到剪贴板失败:', error);
+        showToast('复制失败，您的浏览器可能不支持此功能', 'error');
+    }
+}
+
+// 显示提示消息
+function showToast(message, type = 'info') {
+    // 创建提示元素
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+        ${message}
+    `;
+    
+    // 添加到页面
+    document.body.appendChild(toast);
+    
+    // 显示动画
+    setTimeout(() => toast.classList.add('show'), 100);
+    
+    // 自动移除
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
+}
