@@ -48,21 +48,45 @@
                         <h3><i class="fas fa-cog"></i> 裁剪参数</h3>
                         
                         <div class="control-group">
-                            <label for="blockWidth">块宽度 (px):</label>
-                            <input type="number" id="blockWidth" value="200" min="10" max="1000">
-                        </div>
-
-                        <div class="control-group">
-                            <label for="blockHeight">块高度 (px):</label>
-                            <input type="number" id="blockHeight" value="200" min="10" max="1000">
-                        </div>
-
-                        <div class="control-group">
-                            <label for="direction">裁剪方向:</label>
+                            <label for="direction">裁剪模式:</label>
                             <select id="direction">
-                                <option value="horizontal">水平 (从左到右)</option>
-                                <option value="vertical">垂直 (从上到下)</option>
+                                <option value="rows">按行裁剪 (从上到下)</option>
+                                <option value="columns">按列裁剪 (从左到右)</option>
+                                <option value="grid">网格裁剪 (行×列)</option>
                             </select>
+                        </div>
+
+                        <!-- 按行裁剪的参数 -->
+                        <div class="control-group rows-params" style="display:none">
+                            <label for="rowCount">行数 (块数量):</label>
+                            <input type="number" id="rowCount" value="3" min="1" max="100">
+                        </div>
+
+                        <div class="control-group rows-params" style="display:none">
+                            <label for="rowHeight">每行高度 (px):</label>
+                            <input type="number" id="rowHeight" value="100" min="5" max="5000">
+                        </div>
+
+                        <!-- 按列裁剪的参数 -->
+                        <div class="control-group cols-params" style="display:none">
+                            <label for="colCount">列数 (块数量):</label>
+                            <input type="number" id="colCount" value="3" min="1" max="100">
+                        </div>
+
+                        <div class="control-group cols-params" style="display:none">
+                            <label for="colWidth">每列宽度 (px):</label>
+                            <input type="number" id="colWidth" value="100" min="5" max="5000">
+                        </div>
+
+                        <!-- 网格裁剪的参数 -->
+                        <div class="control-group grid-params">
+                            <label for="blockWidth">块宽度 (px):</label>
+                            <input type="number" id="blockWidth" value="200" min="10" max="5000">
+                        </div>
+
+                        <div class="control-group grid-params">
+                            <label for="blockHeight">块高度 (px):</label>
+                            <input type="number" id="blockHeight" value="200" min="10" max="5000">
                         </div>
 
                         <div class="control-group">
@@ -71,6 +95,38 @@
                                 <input type="checkbox" id="showGrid" checked>
                                 <span class="slider"></span>
                             </label>
+                        </div>
+
+                        <div class="control-group">
+                            <label>拖拽模式:</label>
+                            <div class="drag-mode-selector">
+                                <label class="radio-option">
+                                    <input type="radio" name="dragMode" value="single" checked>
+                                    <span class="radio-label">单个移动</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="dragMode" value="group">
+                                    <span class="radio-label">整体移动</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="control-group">
+                            <label>网格调整:</label>
+                            <button class="btn btn-secondary btn-small" onclick="resetGridOffsets()">
+                                <i class="fas fa-undo"></i> 重置网格位置
+                            </button>
+                            <div class="grid-hint">
+                                💡 提示：可拖动网格线调整位置<br>
+                                单个移动：只移动选中的网格线<br>
+                                整体移动：保持间距移动所有网格线
+                            </div>
+                        </div>
+
+                        <!-- 验证警告区域 -->
+                        <div class="validation-warning" id="validationWarning" style="display:none">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span id="warningText"></span>
                         </div>
 
                         <div class="stats" id="stats"></div>
@@ -93,6 +149,12 @@
                 <div class="results-info" id="resultsInfo"></div>
                 <div class="results-container" id="resultsContainer"></div>
                 <div class="download-actions">
+                    <button class="btn btn-primary" onclick="selectAllImages()">
+                        <i class="fas fa-check-square"></i> 选中所有图片
+                    </button>
+                    <button class="btn btn-secondary" onclick="copyAllToClipboard()">
+                        <i class="fas fa-copy"></i> 复制合并图片
+                    </button>
                     <button class="btn btn-success" onclick="downloadAll()">
                         <i class="fas fa-download"></i> 下载所有图片
                     </button>
